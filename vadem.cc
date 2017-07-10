@@ -149,29 +149,34 @@ int main() {
   std::cout << "libva initialized, version " << major << "." << minor
             << std::endl;
 
+  // Load test image
   const std::string& input_path = "data/color_bus_buddy.png";
   std::cout << "loading test image: " << input_path << std::endl;
   png::image<png::rgba_pixel> input_png(input_path);
   const auto width = input_png.get_width();
   const auto height = input_png.get_height();
 
+  // Copy test image into a new VAImage
   VAImage input_image = va_image_create_rgba(width, height);
   va_image_rgba_copy_from_png(input_image, input_png);
 
   // Sanity check: copy the original image back out to a new PNG file
   va_image_save(input_image, "input.png");
 
+  // Create an empty surface
   const unsigned int surface_format = VA_RT_FORMAT_RGB32;
   VASurfaceID surface_id = 0;
   check_status(vaCreateSurfaces(g_display, surface_format, width, height,
                                 &surface_id, 1, nullptr, 0));
 
+  // Copy the test image into the surface
   check_status(vaPutImage(g_display, surface_id, input_image.image_id, 0, 0,
                           width, height, 0, 0, width, height));
 
+
+  // Write the surface's image back out to a new PNG file
   VAImage surf_image;
   check_status(vaDeriveImage(g_display, surface_id, &surf_image));
-
   va_image_save(surf_image, "output.png");
 
   check_status(vaTerminate(g_display));

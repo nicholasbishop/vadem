@@ -25,7 +25,6 @@ static void check_status(const VAStatus status) {
 }
 
 static void va_image_check_offset(const VAImage& image,
-                                  uint8_t* const mem,
                                   const std::size_t offset) {
   if (offset >= image.data_size) {
     throw std::runtime_error("image offset out of bounds: " +
@@ -38,14 +37,14 @@ static void va_image_set_u8(const VAImage& image,
                             uint8_t* const mem,
                             const std::size_t offset,
                             const uint8_t val) {
-  va_image_check_offset(image, mem, offset);
+  va_image_check_offset(image, offset);
   mem[offset] = val;
 }
 
-static u8 va_image_get_u8(const VAImage& image,
-                          uint8_t* const mem,
-                          const std::size_t offset) {
-  va_image_check_offset(image, mem, offset);
+static uint8_t va_image_get_u8(const VAImage& image,
+                               uint8_t* const mem,
+                               const std::size_t offset) {
+  va_image_check_offset(image, offset);
   return mem[offset];
 }
 
@@ -105,14 +104,14 @@ static void va_image_rgba_copy_from_png(
 
 static png::image<png::rgba_pixel> va_image_rgba_copy_to_png(
     const VAImage& src) {
-  png::image<png::rgba_pixel> dst(surf_image.width, surf_image.height);
+  png::image<png::rgba_pixel> dst(src.width, src.height);
 
   ScopedBufferMap bufmap(src.buf);
   uint8_t* mem = bufmap.data();
 
-  for (uint32_t y = 0; y < dst.height; y++) {
-    for (uint32_t x = 0; x < dst.width; x++) {
-      const uint32_t offset = (y * dst.width + x) * 4;
+  for (uint32_t y = 0; y < src.height; y++) {
+    for (uint32_t x = 0; x < src.width; x++) {
+      const uint32_t offset = (y * src.width + x) * 4;
       const auto pixel = png::rgba_pixel(va_image_get_u8(src, mem, offset + 0),
                                          va_image_get_u8(src, mem, offset + 1),
                                          va_image_get_u8(src, mem, offset + 2),

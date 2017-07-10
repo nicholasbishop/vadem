@@ -18,6 +18,13 @@ std::string hex_str(const T& t) {
   return ss.str();
 }
 
+template <typename A, typename B>
+static void assert_equal(const A& a, const B& b) {
+  if (a != b) {
+    throw std::runtime_error(std::to_string(a) + " != " + std::to_string(b));
+  }
+}
+
 static void check_status(const VAStatus status) {
   if (status != VA_STATUS_SUCCESS) {
     throw std::runtime_error("VAStatus: " + hex_str(status));
@@ -64,16 +71,16 @@ class ScopedBufferMap {
   uint8_t* mem_;
 };
 
-static VAImage va_image_create_rgba(const int width, const int height) {
+static VAImage va_image_create_rgb(const int width, const int height) {
   VAImageFormat image_format{
-      .fourcc = VA_FOURCC_RGBA,
+      .fourcc = VA_FOURCC_RGBX,
       .byte_order = VA_LSB_FIRST,
-      .bits_per_pixel = 32,
+      .bits_per_pixel = 24,
       .depth = 32,
       .red_mask = 0xff,
       .green_mask = 0xff00,
       .blue_mask = 0xff0000,
-      .alpha_mask = 0xff000000,
+      .alpha_mask = 0x00000000,
   };
   VAImage image;
   check_status(vaCreateImage(g_display, &image_format, width, height, &image));
@@ -81,14 +88,15 @@ static VAImage va_image_create_rgba(const int width, const int height) {
   return image;
 }
 
-static void va_image_rgba_copy_from_png(
+static void va_image_rgb_copy_from_png(
     const VAImage& dst,
-    const png::image<png::rgba_pixel>& src) {
+    const png::image<png::rgb_pixel>& src) {
   ScopedBufferMap bufmap(dst.buf);
   uint8_t* mem = bufmap.data();
 
-  assert(src.get_width() == dst.width);
-  assert(src.get_height() == dst.height);
+  assert_equal(src.get_width(), dst.width);
+  assert_equal(src.get_height(), dst.height);
+  assert_equal(dst.format.depth, 32u);
 
   for (uint32_t y = 0; y < dst.height; y++) {
     for (uint32_t x = 0; x < dst.width; x++) {
@@ -97,28 +105,29 @@ static void va_image_rgba_copy_from_png(
       va_image_set_u8(dst, mem, offset + 0, pixel.red);
       va_image_set_u8(dst, mem, offset + 1, pixel.green);
       va_image_set_u8(dst, mem, offset + 2, pixel.blue);
-      va_image_set_u8(dst, mem, offset + 3, pixel.alpha);
     }
   }
 }
 
-static png::image<png::rgba_pixel> va_image_rgba_copy_to_png(
+static png::image<png::rgb_pixel> va_image_rgb_copy_to_png(
     const VAImage& src) {
-  assert(src.format.fourcc == VA_FOURCC_RGBA);
-  assert(src.format.depth == 32);
+  assert_equal(src.format.fourcc, (unsigned)VA_FOURCC_RGBX);
+  assert((src.format.depth == 24u) ||
+         (src.format.depth == 32u));
 
-  png::image<png::rgba_pixel> dst(src.width, src.height);
+  png::image<png::rgb_pixel> dst(src.width, src.height);
 
   ScopedBufferMap bufmap(src.buf);
   uint8_t* mem = bufmap.data();
 
+  const int bytes_per_pixel = src.format.depth / 8;
+
   for (uint32_t y = 0; y < src.height; y++) {
     for (uint32_t x = 0; x < src.width; x++) {
-      const uint32_t offset = (y * src.width + x) * 4;
-      const auto pixel = png::rgba_pixel(va_image_get_u8(src, mem, offset + 0),
-                                         va_image_get_u8(src, mem, offset + 1),
-                                         va_image_get_u8(src, mem, offset + 2),
-                                         va_image_get_u8(src, mem, offset + 3));
+      const uint32_t offset = (y * src.width + x) * bytes_per_pixel;
+      const auto pixel = png::rgb_pixel(va_image_get_u8(src, mem, offset + 0),
+                                        va_image_get_u8(src, mem, offset + 1),
+                                        va_image_get_u8(src, mem, offset + 2));
       dst.set_pixel(x, y, pixel);
     }
   }
@@ -128,7 +137,7 @@ static png::image<png::rgba_pixel> va_image_rgba_copy_to_png(
 
 static void va_image_save(const VAImage& src, const std::string& filename) {
   std::cout << "writing VAImage to " << filename << std::endl;
-  auto output_png = va_image_rgba_copy_to_png(src);
+  auto output_png = va_image_rgb_copy_to_png(src);
   output_png.write(filename);
 }
 
@@ -152,13 +161,13 @@ int main() {
   // Load test image
   const std::string& input_path = "data/color_bus_buddy.png";
   std::cout << "loading test image: " << input_path << std::endl;
-  png::image<png::rgba_pixel> input_png(input_path);
+  png::image<png::rgb_pixel> input_png(input_path);
   const auto width = input_png.get_width();
   const auto height = input_png.get_height();
 
   // Copy test image into a new VAImage
-  VAImage input_image = va_image_create_rgba(width, height);
-  va_image_rgba_copy_from_png(input_image, input_png);
+  VAImage input_image = va_image_create_rgb(width, height);
+  va_image_rgb_copy_from_png(input_image, input_png);
 
   // Sanity check: copy the original image back out to a new PNG file
   va_image_save(input_image, "input.png");

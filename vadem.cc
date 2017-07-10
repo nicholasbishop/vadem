@@ -93,9 +93,7 @@ class YCbCr {
     return from_rgb(pixel.red, pixel.green, pixel.blue);
   }
 
-  png::rgb_pixel to_rgb() const {
-    return {red_u8(), green_u8(), blue_u8()};
-  }
+  png::rgb_pixel to_rgb() const { return {red_u8(), green_u8(), blue_u8()}; }
 
   T red() const { return 1.164 * (Y - 16) + 1.596 * (Cr - 128); }
 
@@ -105,17 +103,11 @@ class YCbCr {
 
   T blue() const { return 1.164 * (Y - 16) + 2.017 * (Cb - 128); }
 
-  uint8_t red_u8() const {
-    return red();
-  }
+  uint8_t red_u8() const { return red(); }
 
-  uint8_t green_u8() const {
-    return green();
-  }
+  uint8_t green_u8() const { return green(); }
 
-  uint8_t blue_u8() const {
-    return blue();
-  }
+  uint8_t blue_u8() const { return blue(); }
 
   T Y, Cb, Cr;
 };
@@ -210,7 +202,8 @@ static VAImage va_image_create_nv12(const int width, const int height) {
   return image;
 }
 
-static png::image<png::rgb_pixel> va_image_nv12_copy_to_png(const VAImage& src) {
+static png::image<png::rgb_pixel> va_image_nv12_copy_to_png(
+    const VAImage& src) {
   const std::size_t w = src.width;
   const std::size_t h = src.height;
 
@@ -296,9 +289,9 @@ static png::image<png::rgb_pixel> va_image_rgb_copy_to_png(const VAImage& src) {
 
 static void va_image_save(const VAImage& src, const std::string& filename) {
   std::cout << "writing VAImage to " << filename << std::endl;
-  auto output_png = ((src.format.fourcc == VA_FOURCC_NV12) ?
-                     va_image_nv12_copy_to_png(src) :
-                     va_image_rgb_copy_to_png(src));
+  auto output_png =
+      ((src.format.fourcc == VA_FOURCC_NV12) ? va_image_nv12_copy_to_png(src)
+                                             : va_image_rgb_copy_to_png(src));
   output_png.write(filename);
 }
 

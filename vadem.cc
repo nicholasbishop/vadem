@@ -127,6 +127,7 @@ static png::image<png::rgba_pixel> va_image_rgba_copy_to_png(
 }
 
 static void va_image_save(const VAImage& src, const std::string& filename) {
+  std::cout << "writing VAImage to " << filename << std::endl;
   auto output_png = va_image_rgba_copy_to_png(src);
   output_png.write(filename);
 }
@@ -148,20 +149,22 @@ int main() {
   std::cout << "libva initialized, version " << major << "." << minor
             << std::endl;
 
-  const unsigned int surface_format = VA_RT_FORMAT_RGB32;
-  const unsigned int width = 640;
-  const unsigned int height = 480;
-  VASurfaceID surface_id = 0;
-  check_status(vaCreateSurfaces(g_display, surface_format, width, height,
-                                &surface_id, 1, nullptr, 0));
-
-  png::image<png::rgba_pixel> input_png("data/color_bus_buddy.png");
+  const std::string& input_path = "data/color_bus_buddy.png";
+  std::cout << "loading test image: " << input_path << std::endl;
+  png::image<png::rgba_pixel> input_png(input_path);
+  const auto width = input_png.get_width();
+  const auto height = input_png.get_height();
 
   VAImage input_image = va_image_create_rgba(width, height);
   va_image_rgba_copy_from_png(input_image, input_png);
 
   // Sanity check: copy the original image back out to a new PNG file
   va_image_save(input_image, "input.png");
+
+  const unsigned int surface_format = VA_RT_FORMAT_RGB32;
+  VASurfaceID surface_id = 0;
+  check_status(vaCreateSurfaces(g_display, surface_format, width, height,
+                                &surface_id, 1, nullptr, 0));
 
   check_status(vaPutImage(g_display, surface_id, input_image.image_id, 0, 0,
                           width, height, 0, 0, width, height));

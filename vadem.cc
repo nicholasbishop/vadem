@@ -173,7 +173,6 @@ int main() {
   check_status(vaPutImage(g_display, surface_id, input_image.image_id, 0, 0,
                           width, height, 0, 0, width, height));
 
-
   // Write the surface's image back out to a new PNG file
   VAImage surf_image;
   check_status(vaDeriveImage(g_display, surface_id, &surf_image));

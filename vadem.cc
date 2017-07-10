@@ -104,6 +104,9 @@ static void va_image_rgba_copy_from_png(
 
 static png::image<png::rgba_pixel> va_image_rgba_copy_to_png(
     const VAImage& src) {
+  assert(src.format.fourcc == VA_FOURCC_RGBA);
+  assert(src.format.depth == 32);
+
   png::image<png::rgba_pixel> dst(src.width, src.height);
 
   ScopedBufferMap bufmap(src.buf);
@@ -121,6 +124,11 @@ static png::image<png::rgba_pixel> va_image_rgba_copy_to_png(
   }
 
   return dst;
+}
+
+static void va_image_save(const VAImage& src, const std::string& filename) {
+  auto output_png = va_image_rgba_copy_to_png(src);
+  output_png.write(filename);
 }
 
 int main() {
@@ -152,14 +160,16 @@ int main() {
   VAImage input_image = va_image_create_rgba(width, height);
   va_image_rgba_copy_from_png(input_image, input_png);
 
+  // Sanity check: copy the original image back out to a new PNG file
+  va_image_save(input_image, "input.png");
+
   check_status(vaPutImage(g_display, surface_id, input_image.image_id, 0, 0,
                           width, height, 0, 0, width, height));
 
   VAImage surf_image;
   check_status(vaDeriveImage(g_display, surface_id, &surf_image));
 
-  auto output_png = va_image_rgba_copy_to_png(surf_image);
-  output_png.write("output.png");
+  va_image_save(surf_image, "output.png");
 
   check_status(vaTerminate(g_display));
 

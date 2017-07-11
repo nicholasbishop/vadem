@@ -8,22 +8,11 @@
 #include <va/va_drm.h>
 
 #include "png.hpp"
+#include "util.h"
 
 static VADisplay g_display = nullptr;
 
-template <typename T>
-std::string hex_str(const T& t) {
-  std::stringstream ss;
-  ss << "0x" << std::hex << t;
-  return ss.str();
-}
-
-template <typename A, typename B>
-static void assert_equal(const A& a, const B& b) {
-  if (a != b) {
-    throw std::runtime_error(std::to_string(a) + " != " + std::to_string(b));
-  }
-}
+using namespace vadem;
 
 static void check_status(const VAStatus status) {
   if (status != VA_STATUS_SUCCESS) {
@@ -111,13 +100,7 @@ class YCbCr {
   uint8_t blue_u8() const { return blue(); }
 
   static T clamp_255(const T val) {
-    if (val < 0) {
-      return 0;
-    } else if (val > 255) {
-      return 255;
-    } else {
-      return val;
-    }
+    return clamp(val, 0, 255);
   }
 
   T Y, Cb, Cr;

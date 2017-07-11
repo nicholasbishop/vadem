@@ -1,3 +1,5 @@
+// Copyright 2017 Neverware
+
 #ifndef UTIL_H_
 #define UTIL_H_
 

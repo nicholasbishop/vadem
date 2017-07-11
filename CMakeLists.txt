@@ -7,6 +7,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address")
 
 include_directories(SYSTEM png++)
 
-add_executable(vadem vadem.cc)
+add_executable(vadem va_util.cc vadem.cc)
 
 target_link_libraries(vadem png va va-drm)

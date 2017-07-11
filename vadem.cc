@@ -1,3 +1,5 @@
+// Copyright 2017 Neverware
+
 #include <cassert>
 #include <iostream>
 #include <sstream>
@@ -7,167 +9,14 @@
 #include <va/va.h>
 #include <va/va_drm.h>
 
+#include "color.h"
+#include "nv12.h"
 #include "png.hpp"
 #include "util.h"
 
 static VADisplay g_display = nullptr;
 
 using namespace vadem;
-
-static void check_status(const VAStatus status) {
-  if (status != VA_STATUS_SUCCESS) {
-    throw std::runtime_error("VAStatus: " + hex_str(status));
-  }
-}
-
-static std::size_t va_image_check_offset(const VAImage& image,
-                                         const std::size_t offset) {
-  if (offset >= image.data_size) {
-    throw std::runtime_error("image offset out of bounds: " +
-                             std::to_string(offset) + " >= " +
-                             std::to_string(image.data_size));
-  }
-  return offset;
-}
-
-static void va_image_set_u8(const VAImage& image,
-                            uint8_t* const mem,
-                            const std::size_t offset,
-                            const uint8_t val) {
-  va_image_check_offset(image, offset);
-  mem[offset] = val;
-}
-
-static uint8_t va_image_get_u8(const VAImage& image,
-                               uint8_t* const mem,
-                               const std::size_t offset) {
-  va_image_check_offset(image, offset);
-  return mem[offset];
-}
-
-class ScopedBufferMap {
- public:
-  ScopedBufferMap(const VABufferID buf) : buf_(buf) {
-    void** vmem = reinterpret_cast<void**>(&mem_);
-    check_status(vaMapBuffer(g_display, buf_, vmem));
-  }
-
-  ~ScopedBufferMap() { check_status(vaUnmapBuffer(g_display, buf_)); }
-
-  uint8_t* data() { return mem_; }
-
- private:
-  const VABufferID buf_;
-  uint8_t* mem_;
-};
-
-// Adapted from "YCbCr and YCCK Color Models",
-// https://software.intel.com/en-us/node/503873
-class YCbCr {
- public:
-  using T = float;
-
-  YCbCr() : Y(0), Cb(0), Cr(0) {}
-
-  YCbCr(const T Y, const T Cb, const T Cr) : Y(Y), Cb(Cb), Cr(Cr) {}
-
-  static YCbCr from_rgb(const T R, const T G, const T B) {
-    const T Y = 0.257 * R + 0.504 * G + 0.098 * B + 16;
-    const T Cb = -0.148 * R - 0.291 * G + 0.439 * B + 128;
-    const T Cr = 0.439 * R - 0.368 * G - 0.071 * B + 128;
-    return {Y, Cb, Cr};
-  }
-
-  static YCbCr from_rgb(const png::rgb_pixel& pixel) {
-    return from_rgb(pixel.red, pixel.green, pixel.blue);
-  }
-
-  png::rgb_pixel to_rgb() const { return {red_u8(), green_u8(), blue_u8()}; }
-
-  T red() const { return clamp_255(1.164 * (Y - 16) + 1.596 * (Cr - 128)); }
-
-  T green() const {
-    return clamp_255(1.164 * (Y - 16) - 0.813 * (Cr - 128) -
-                     0.392 * (Cb - 128));
-  }
-
-  T blue() const { return clamp_255(1.164 * (Y - 16) + 2.017 * (Cb - 128)); }
-
-  uint8_t red_u8() const { return red(); }
-
-  uint8_t green_u8() const { return green(); }
-
-  uint8_t blue_u8() const { return blue(); }
-
-  static T clamp_255(const T val) {
-    return clamp(val, 0, 255);
-  }
-
-  T Y, Cb, Cr;
-};
-
-class Nv12Buffer {
- public:
-  using Offset = std::size_t;
-
-  Nv12Buffer(const VAImage& image)
-      : image(image),
-        bufmap(image.buf),
-        mem(bufmap.data()),
-        w(image.width),
-        h(image.height),
-        half_w(w / 2),
-        half_h(h / 2),
-        plane2(w * h) {
-    assert_equal(image.format.fourcc, (unsigned)VA_FOURCC_NV12);
-    assert_equal(image.num_planes, 2u);
-
-    // Easier to reason about
-    assert_equal(half_w * 2, w);
-    assert_equal(half_h * 2, h);
-  }
-
-  Offset offset_Y(const Offset x, const Offset y) const {
-    return va_image_check_offset(image, y * w + x);
-  }
-
-  Offset offset_Cb(const Offset x, const Offset y) const {
-    return va_image_check_offset(image, plane2 + ((y / 2) * half_w + (x / 2)));
-  }
-
-  Offset offset_Cr(const Offset x, const Offset y) const {
-    return va_image_check_offset(image, offset_Cb(x, y) + 1);
-  }
-
-  YCbCr get_pixel(const Offset x, const Offset y) const {
-    return YCbCr(va_image_get_u8(image, mem, offset_Y(x, y)),
-                 va_image_get_u8(image, mem, offset_Cb(x, y)),
-                 va_image_get_u8(image, mem, offset_Cr(x, y)));
-  }
-
-  void set_pixel(const Offset x, const Offset y, const YCbCr& color) {
-    va_image_set_u8(image, mem, offset_Y(x, y), color.Y);
-    va_image_set_u8(image, mem, offset_Cb(x, y), color.Cb);
-    va_image_set_u8(image, mem, offset_Cr(x, y), color.Cr);
-  }
-
-  void set_u8(const Offset offset, const uint8_t val) {
-    va_image_set_u8(image, mem, offset, val);
-  }
-
-  void fill_u8(const uint8_t val) { memset(mem, val, image.data_size); }
-
-  uint8_t* data() { return mem; }
-
- private:
-  const VAImage image;
-  ScopedBufferMap bufmap;
-  uint8_t* const mem;
-
-  const Offset w, h;
-  const Offset half_w, half_h;
-  const Offset plane2;
-};
 
 VAImage va_image_create_rgb(const int width, const int height) {
   VAImageFormat image_format{
@@ -208,7 +57,7 @@ VAImage va_image_nv12_gen_CbCr_gradient(const float Y) {
   const std::size_t w = 512;
   const std::size_t half_w = w / 2;
   const VAImage image = va_image_create_nv12(w, w);
-  Nv12Buffer buf(image);
+  Nv12Buffer buf(g_display, image);
 
   std::size_t offset = 0;
 
@@ -241,7 +90,7 @@ VAImage va_image_nv12_gen_CbCr_gradient(const float Y) {
 VAImage va_image_nv12_gen_Y_gradient() {
   const std::size_t w = 128;
   const VAImage image = va_image_create_nv12(w, w);
-  Nv12Buffer buf(image);
+  Nv12Buffer buf(g_display, image);
   buf.fill_u8(128);
 
   for (std::size_t y = 0; y < w; y++) {
@@ -265,7 +114,7 @@ static png::image<png::rgb_pixel> va_image_nv12_copy_to_png(
 
   png::image<png::rgb_pixel> dst(w, h);
 
-  Nv12Buffer buf(src);
+  Nv12Buffer buf(g_display, src);
 
   for (uint32_t y = 0; y < h; y++) {
     for (uint32_t x = 0; x < w; x++) {
@@ -285,7 +134,7 @@ static void va_image_nv12_copy_from_png(const VAImage& dst,
   assert_equal(w, dst.width);
   assert_equal(h, dst.height);
 
-  Nv12Buffer buf(dst);
+  Nv12Buffer buf(g_display, dst);
 
   for (uint32_t y = 0; y < h; y++) {
     for (uint32_t x = 0; x < w; x++) {
@@ -298,7 +147,7 @@ static void va_image_nv12_copy_from_png(const VAImage& dst,
 
 void va_image_rgb_copy_from_png(const VAImage& dst,
                                 const png::image<png::rgb_pixel>& src) {
-  ScopedBufferMap bufmap(dst.buf);
+  ScopedBufferMap bufmap(g_display, dst.buf);
   uint8_t* mem = bufmap.data();
 
   assert_equal(src.get_width(), dst.width);
@@ -322,7 +171,7 @@ static png::image<png::rgb_pixel> va_image_rgb_copy_to_png(const VAImage& src) {
 
   png::image<png::rgb_pixel> dst(src.width, src.height);
 
-  ScopedBufferMap bufmap(src.buf);
+  ScopedBufferMap bufmap(g_display, src.buf);
   uint8_t* mem = bufmap.data();
 
   const int bytes_per_pixel = src.format.depth / 8;
@@ -356,7 +205,7 @@ static void va_image_save(const VAImage& src, const std::string& filename) {
 // or try: http://rawpixels.net/
 void va_image_dump(const VAImage& src, const std::string& filename) {
   std::cout << "dumping VAImage to " << filename << std::endl;
-  Nv12Buffer buf(src);
+  Nv12Buffer buf(g_display, src);
   FILE* file = fopen(filename.c_str(), "w");
   const std::size_t result = fwrite(buf.data(), 1, src.data_size, file);
   assert_equal(result, src.data_size);

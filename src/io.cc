@@ -75,4 +75,44 @@ void va_image_save(VADisplay display,
                          : va_image_rgb_copy_to_png(display, src));
   output_png.write(filename);
 }
+
+void va_image_rgb_copy_from_png(VADisplay display, const VAImage& dst,
+                                const png::image<png::rgb_pixel>& src) {
+  ScopedBufferMap bufmap(display, dst.buf);
+  uint8_t* mem = bufmap.data();
+
+  assert_equal(src.get_width(), dst.width);
+  assert_equal(src.get_height(), dst.height);
+  assert_equal(dst.format.depth, 32u);
+
+  for (uint32_t y = 0; y < dst.height; y++) {
+    for (uint32_t x = 0; x < dst.width; x++) {
+      const uint32_t offset = (y * dst.width + x) * 4;
+      const auto pixel = src.get_pixel(x, y);
+      va_image_set_u8(dst, mem, offset + 0, pixel.red);
+      va_image_set_u8(dst, mem, offset + 1, pixel.green);
+      va_image_set_u8(dst, mem, offset + 2, pixel.blue);
+    }
+  }
+}
+
+void va_image_nv12_copy_from_png(VADisplay display, const VAImage& dst,
+                                 const png::image<png::rgb_pixel>& src) {
+  const std::size_t w = src.get_width();
+  const std::size_t h = src.get_height();
+
+  assert_equal(w, dst.width);
+  assert_equal(h, dst.height);
+
+  Nv12Buffer buf(display, dst);
+
+  for (uint32_t y = 0; y < h; y++) {
+    for (uint32_t x = 0; x < w; x++) {
+      const auto src_color = src.get_pixel(x, y);
+
+      buf.set_pixel(x, y, YCbCr::from_rgb(src_color));
+    }
+  }
+}
+
 }

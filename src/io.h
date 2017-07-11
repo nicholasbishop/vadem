@@ -7,6 +7,8 @@
 
 #include <va/va.h>
 
+#include "png.hpp"
+
 namespace vadem {
 
 // ImageMagick can display a raw NV12 file like so:
@@ -20,6 +22,13 @@ void va_image_dump(VADisplay display,
                    const std::string& filename);
 
 void va_image_save(VADisplay display, const VAImage& src, const std::string& filename);
+
+void va_image_rgb_copy_from_png(VADisplay display, const VAImage& dst,
+                                const png::image<png::rgb_pixel>& src);
+
+void va_image_nv12_copy_from_png(VADisplay display, const VAImage& dst,
+                                 const png::image<png::rgb_pixel>& src);
+
 }
 
 #endif  // SRC_IO_H_

@@ -98,7 +98,8 @@ class YCbCr {
   T red() const { return clamp_255(1.164 * (Y - 16) + 1.596 * (Cr - 128)); }
 
   T green() const {
-    return clamp_255(1.164 * (Y - 16) - 0.813 * (Cr - 128) - 0.392 * (Cb - 128));
+    return clamp_255(1.164 * (Y - 16) - 0.813 * (Cr - 128) -
+                     0.392 * (Cb - 128));
   }
 
   T blue() const { return clamp_255(1.164 * (Y - 16) + 2.017 * (Cb - 128)); }
@@ -171,13 +172,9 @@ class Nv12Buffer {
     va_image_set_u8(image, mem, offset, val);
   }
 
-  void fill_u8(const uint8_t val) {
-    memset(mem, val, image.data_size);
-  }
+  void fill_u8(const uint8_t val) { memset(mem, val, image.data_size); }
 
-  uint8_t* data() {
-    return mem;
-  }
+  uint8_t* data() { return mem; }
 
  private:
   const VAImage image;
@@ -370,7 +367,8 @@ static void va_image_save(const VAImage& src, const std::string& filename) {
 
 // ImageMagick can display a raw NV12 file like so:
 //
-// display -size 512x512 -depth 8 -sample 4:2:0 -interlace plane yuv:coolfile.raw
+// display -size 512x512 -depth 8 -sample 4:2:0 -interlace plane
+// yuv:coolfile.raw
 //
 // or try: http://rawpixels.net/
 void va_image_dump(const VAImage& src, const std::string& filename) {
@@ -407,7 +405,7 @@ int main() {
   const auto height = input_png.get_height();
 
   const auto gradient_image = va_image_nv12_gen_CbCr_gradient(128);
-  //const auto gradient_image = va_image_nv12_gen_Y_gradient();
+  // const auto gradient_image = va_image_nv12_gen_Y_gradient();
   va_image_save(gradient_image, "gradient.png");
   va_image_dump(gradient_image, "gradient.raw");
 

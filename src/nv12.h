@@ -5,6 +5,7 @@
 
 #include <va/va.h>
 
+#include "color.h"
 #include "scoped_buffer_map.h"
 #include "va_util.h"
 

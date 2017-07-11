@@ -10,6 +10,7 @@
 #include <va/va_drm.h>
 
 #include "color.h"
+#include "io.h"
 #include "nv12.h"
 #include "png.hpp"
 #include "util.h"
@@ -197,21 +198,6 @@ static void va_image_save(const VAImage& src, const std::string& filename) {
   output_png.write(filename);
 }
 
-// ImageMagick can display a raw NV12 file like so:
-//
-// display -size 512x512 -depth 8 -sample 4:2:0 -interlace plane
-// yuv:coolfile.raw
-//
-// or try: http://rawpixels.net/
-void va_image_dump(const VAImage& src, const std::string& filename) {
-  std::cout << "dumping VAImage to " << filename << std::endl;
-  Nv12Buffer buf(g_display, src);
-  FILE* file = fopen(filename.c_str(), "w");
-  const std::size_t result = fwrite(buf.data(), 1, src.data_size, file);
-  assert_equal(result, src.data_size);
-  fclose(file);
-}
-
 int main() {
   const char* device_path = "/dev/dri/renderD128";
   const int fd = open(device_path, 0);
@@ -239,7 +225,7 @@ int main() {
   const auto gradient_image = va_image_nv12_gen_CbCr_gradient(128);
   // const auto gradient_image = va_image_nv12_gen_Y_gradient();
   va_image_save(gradient_image, "gradient.png");
-  va_image_dump(gradient_image, "gradient.raw");
+  va_image_dump(g_display, gradient_image, "gradient.raw");
 
   // Copy test image into a new VAImage
   VAImage input_image = va_image_create_nv12(width, height);

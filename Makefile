@@ -20,8 +20,8 @@ format:
 	clang-format -i vadem.cc
 
 
-${BUILD}/vadem: 
-	${CXX} -o vadem vadem.cc ${CXXFLAGS} ${LDFLAGS}
+help:
+	echo "usage: make [build|clean|format]"
 
 
-.PHONY: all build clean format
+.PHONY: all build clean format help

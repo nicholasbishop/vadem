@@ -1,5 +1,5 @@
 CXX=clang++
-CXXFLAGS=-g -Wall -Wextra -std=c++11 -isystem png++
+CXXFLAGS=-g -Wall -Wextra -std=c++11 -isystem png++ -fsanitize=address
 LDFLAGS=-lva -lva-drm -lpng
 
 all: vadem

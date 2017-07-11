@@ -95,19 +95,29 @@ class YCbCr {
 
   png::rgb_pixel to_rgb() const { return {red_u8(), green_u8(), blue_u8()}; }
 
-  T red() const { return 1.164 * (Y - 16) + 1.596 * (Cr - 128); }
+  T red() const { return clamp_255(1.164 * (Y - 16) + 1.596 * (Cr - 128)); }
 
   T green() const {
-    return 1.164 * (Y - 16) - 0.813 * (Cr - 128) - 0.392 * (Cb - 128);
+    return clamp_255(1.164 * (Y - 16) - 0.813 * (Cr - 128) - 0.392 * (Cb - 128));
   }
 
-  T blue() const { return 1.164 * (Y - 16) + 2.017 * (Cb - 128); }
+  T blue() const { return clamp_255(1.164 * (Y - 16) + 2.017 * (Cb - 128)); }
 
   uint8_t red_u8() const { return red(); }
 
   uint8_t green_u8() const { return green(); }
 
   uint8_t blue_u8() const { return blue(); }
+
+  static T clamp_255(const T val) {
+    if (val < 0) {
+      return 0;
+    } else if (val > 255) {
+      return 255;
+    } else {
+      return val;
+    }
+  }
 
   T Y, Cb, Cr;
 };
@@ -151,10 +161,22 @@ class Nv12Buffer {
                  va_image_get_u8(image, mem, offset_Cr(x, y)));
   }
 
-  void set_pixel(const Offset x, const Offset y, const YCbCr& color) const {
+  void set_pixel(const Offset x, const Offset y, const YCbCr& color) {
     va_image_set_u8(image, mem, offset_Y(x, y), color.Y);
     va_image_set_u8(image, mem, offset_Cb(x, y), color.Cb);
     va_image_set_u8(image, mem, offset_Cr(x, y), color.Cr);
+  }
+
+  void set_u8(const Offset offset, const uint8_t val) {
+    va_image_set_u8(image, mem, offset, val);
+  }
+
+  void fill_u8(const uint8_t val) {
+    memset(mem, val, image.data_size);
+  }
+
+  uint8_t* data() {
+    return mem;
   }
 
  private:
@@ -198,6 +220,57 @@ static VAImage va_image_create_nv12(const int width, const int height) {
   };
   VAImage image;
   check_status(vaCreateImage(g_display, &image_format, width, height, &image));
+
+  return image;
+}
+
+VAImage va_image_nv12_gen_CbCr_gradient(const float Y) {
+  const std::size_t w = 512;
+  const std::size_t half_w = w / 2;
+  const VAImage image = va_image_create_nv12(w, w);
+  Nv12Buffer buf(image);
+
+  std::size_t offset = 0;
+
+  for (std::size_t y = 0; y < w; y++) {
+    for (std::size_t x = 0; x < w; x++) {
+      buf.set_u8(y * w + x, Y);
+      offset++;
+    }
+  }
+
+  const std::size_t plane2 = w * w;
+  for (std::size_t y = 0; y < half_w; y++) {
+    for (std::size_t x = 0; x < half_w; x++) {
+      const std::size_t Cb = (y * half_w + x) * 2;
+      const std::size_t Cr = Cb + 1;
+      buf.set_u8(plane2 + Cb, x);
+      buf.set_u8(offset, x);
+      offset++;
+      buf.set_u8(plane2 + Cr, y);
+      buf.set_u8(offset, y);
+      offset++;
+    }
+  }
+
+  assert_equal(offset, image.data_size);
+
+  return image;
+}
+
+VAImage va_image_nv12_gen_Y_gradient() {
+  const std::size_t w = 128;
+  const VAImage image = va_image_create_nv12(w, w);
+  Nv12Buffer buf(image);
+  buf.fill_u8(128);
+
+  for (std::size_t y = 0; y < w; y++) {
+    for (std::size_t x = 0; x < w; x++) {
+      const auto fx = (x * 1.0) / w;
+      const auto fy = (y * 1.0) / w;
+      buf.set_u8(y * w + x, fx * fy * 256);
+    }
+  }
 
   return image;
 }
@@ -295,6 +368,20 @@ static void va_image_save(const VAImage& src, const std::string& filename) {
   output_png.write(filename);
 }
 
+// ImageMagick can display a raw NV12 file like so:
+//
+// display -size 512x512 -depth 8 -sample 4:2:0 -interlace plane yuv:coolfile.raw
+//
+// or try: http://rawpixels.net/
+void va_image_dump(const VAImage& src, const std::string& filename) {
+  std::cout << "dumping VAImage to " << filename << std::endl;
+  Nv12Buffer buf(src);
+  FILE* file = fopen(filename.c_str(), "w");
+  const std::size_t result = fwrite(buf.data(), 1, src.data_size, file);
+  assert_equal(result, src.data_size);
+  fclose(file);
+}
+
 int main() {
   const char* device_path = "/dev/dri/renderD128";
   const int fd = open(device_path, 0);
@@ -318,6 +405,11 @@ int main() {
   png::image<png::rgb_pixel> input_png(input_path);
   const auto width = input_png.get_width();
   const auto height = input_png.get_height();
+
+  const auto gradient_image = va_image_nv12_gen_CbCr_gradient(128);
+  //const auto gradient_image = va_image_nv12_gen_Y_gradient();
+  va_image_save(gradient_image, "gradient.png");
+  va_image_dump(gradient_image, "gradient.raw");
 
   // Copy test image into a new VAImage
   VAImage input_image = va_image_create_nv12(width, height);

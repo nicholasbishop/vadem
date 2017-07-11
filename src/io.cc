@@ -7,7 +7,8 @@
 
 namespace vadem {
 
-png::image<png::rgb_pixel> va_image_rgb_copy_to_png(const VAImage& src) {
+static png::image<png::rgb_pixel> va_image_rgb_copy_to_png(VADisplay display,
+                                                           const VAImage& src) {
   assert_equal(src.format.fourcc, (unsigned)VA_FOURCC_RGBX);
   assert((src.format.depth == 24u) || (src.format.depth == 32u));
 
@@ -31,7 +32,8 @@ png::image<png::rgb_pixel> va_image_rgb_copy_to_png(const VAImage& src) {
   return dst;
 }
 
-png::image<png::rgb_pixel> va_image_nv12_copy_to_png(
+static png::image<png::rgb_pixel> va_image_nv12_copy_to_png(
+    VADisplay display,
     const VAImage& src) {
   const std::size_t w = src.width;
   const std::size_t h = src.height;
@@ -41,7 +43,7 @@ png::image<png::rgb_pixel> va_image_nv12_copy_to_png(
 
   png::image<png::rgb_pixel> dst(w, h);
 
-  Nv12Buffer buf(g_display, src);
+  Nv12Buffer buf(display, src);
 
   for (uint32_t y = 0; y < h; y++) {
     for (uint32_t x = 0; x < w; x++) {
@@ -64,11 +66,13 @@ void va_image_dump(VADisplay display,
   fclose(file);
 }
 
-void va_image_save(const VAImage& src, const std::string& filename) {
+void va_image_save(VADisplay display,
+                   const VAImage& src,
+                   const std::string& filename) {
   std::cout << "writing VAImage to " << filename << std::endl;
-  auto output_png =
-      ((src.format.fourcc == VA_FOURCC_NV12) ? va_image_nv12_copy_to_png(src)
-                                             : va_image_rgb_copy_to_png(src));
+  auto output_png = ((src.format.fourcc == VA_FOURCC_NV12)
+                         ? va_image_nv12_copy_to_png(display, src)
+                         : va_image_rgb_copy_to_png(display, src));
   output_png.write(filename);
 }
 }

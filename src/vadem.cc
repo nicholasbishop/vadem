@@ -36,7 +36,7 @@ VAImage va_image_create_rgb(const int width, const int height) {
   return image;
 }
 
-static VAImage va_image_create_nv12(const int width, const int height) {
+VAImage va_image_create_nv12(const int width, const int height) {
   VAImageFormat image_format{
       .fourcc = VA_FOURCC_NV12,
       .byte_order = VA_LSB_FIRST,
@@ -170,7 +170,7 @@ int main() {
 
   const auto gradient_image = va_image_nv12_gen_CbCr_gradient(128);
   // const auto gradient_image = va_image_nv12_gen_Y_gradient();
-  va_image_save(gradient_image, "gradient.png");
+  va_image_save(g_display, gradient_image, "gradient.png");
   va_image_dump(g_display, gradient_image, "gradient.raw");
 
   // Copy test image into a new VAImage
@@ -178,7 +178,7 @@ int main() {
   va_image_nv12_copy_from_png(input_image, input_png);
 
   // Sanity check: copy the original image back out to a new PNG file
-  va_image_save(input_image, "input.png");
+  va_image_save(g_display, input_image, "input.png");
 
   // Create an empty surface
   const unsigned int surface_format = VA_RT_FORMAT_RGB32;
@@ -193,7 +193,7 @@ int main() {
   // Write the surface's image back out to a new PNG file
   VAImage surf_image;
   check_status(vaDeriveImage(g_display, surface_id, &surf_image));
-  va_image_save(surf_image, "output.png");
+  va_image_save(g_display, surf_image, "output.png");
 
   check_status(vaTerminate(g_display));
 

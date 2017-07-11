@@ -1,6 +1,6 @@
-CXX=clang++
-BUILD_DIR=build
-BUILD_TYPE=Debug
+CXX = clang++
+BUILD_DIR ?= build
+BUILD_TYPE ?= Debug
 
 all: build
 

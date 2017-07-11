@@ -19,7 +19,7 @@ void va_image_dump(VADisplay display,
                    const VAImage& src,
                    const std::string& filename);
 
-void va_image_save(const VAImage& src, const std::string& filename);
+void va_image_save(VADisplay display, const VAImage& src, const std::string& filename);
 }
 
 #endif  // SRC_IO_H_

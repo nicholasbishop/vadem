@@ -72,7 +72,6 @@ class Nv12Buffer {
   const Offset half_w, half_h;
   const Offset plane2;
 };
-
 }
 
 #endif  // NV12_H_

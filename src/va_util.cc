@@ -37,5 +37,4 @@ uint8_t va_image_get_u8(const VAImage& image,
   va_image_check_offset(image, offset);
   return mem[offset];
 }
-
 }

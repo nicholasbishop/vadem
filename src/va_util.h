@@ -20,7 +20,6 @@ void va_image_set_u8(const VAImage& image,
 uint8_t va_image_get_u8(const VAImage& image,
                         uint8_t* const mem,
                         const std::size_t offset);
-
 }
 
 #endif  // VA_UTIL_H_

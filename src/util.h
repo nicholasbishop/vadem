@@ -31,7 +31,6 @@ T clamp(const T val, const L min, const H max) {
     return val;
   }
 }
-
 }
 
 #endif  // UTIL_H_

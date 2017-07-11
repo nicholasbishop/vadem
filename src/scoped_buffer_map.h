@@ -11,8 +11,8 @@ namespace vadem {
 
 class ScopedBufferMap {
  public:
-  ScopedBufferMap(VADisplay display, const VABufferID buf) :
-      display_(display), buf_(buf) {
+  ScopedBufferMap(VADisplay display, const VABufferID buf)
+      : display_(display), buf_(buf) {
     void** vmem = reinterpret_cast<void**>(&mem_);
     check_status(vaMapBuffer(display_, buf_, vmem));
   }
@@ -26,7 +26,6 @@ class ScopedBufferMap {
   const VABufferID buf_;
   uint8_t* mem_;
 };
-
 }
 
 #endif  // SCOPED_BUFFER_MAP_H_

@@ -46,13 +46,10 @@ class YCbCr {
 
   uint8_t blue_u8() const { return blue(); }
 
-  static T clamp_255(const T val) {
-    return clamp(val, 0, 255);
-  }
+  static T clamp_255(const T val) { return clamp(val, 0, 255); }
 
   T Y, Cb, Cr;
 };
-
 }
 
 #endif  // COLOR_H_

@@ -17,7 +17,7 @@ clean:
 
 
 format:
-	clang-format -i vadem.cc
+	clang-format -i src/*.h src/*.cc
 
 
 help:
